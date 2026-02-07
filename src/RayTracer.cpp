@@ -25,9 +25,13 @@
 using namespace std;
 extern TraceUI *traceUI;
 
+glm::highp_dmat3 identity(1.0);
+
 // Use this variable to decide if you want to print out debugging messages. Gets
 // set in the "trace single ray" mode in TraceGLWindow, for example.
 bool debugMode = false;
+bool reflectMode = true;
+bool refractMode = true;
 
 // Trace a top-level ray through pixel(i,j), i.e. normalized window coordinates
 // (x,y), through the projection plane, and out into the scene. All we do is
@@ -70,12 +74,13 @@ glm::dvec3 RayTracer::tracePixel(int i, int j) {
 
 #define VERBOSE 0
 
+
 // Do recursive ray tracing! You'll want to insert a lot of code here (or places
 // called from here) to handle reflection, refraction, etc etc.
 glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
                                double &t) {
-  if (depth == 0) {
-    return glm::dvec3(0, 0, 0);
+  if (depth < 0) {
+    return {0, 0, 0};
   }
 
   isect i;
@@ -111,58 +116,62 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
     auto intersectionPos = r.at(i);
 
     // reflection
-    glm::highp_dmat3 identity(1.0); // TODO Make set once on initialize
-    auto nMatrix = 2.0 * glm::outerProduct(n, n);
-    glm::dmat3 reflectMat = identity - nMatrix;
+    if (reflectMode) {
+      auto nMatrix = 2.0 * glm::outerProduct(n, n);
+      glm::dmat3 reflectMat = identity - nMatrix;
 
-    auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
-    ray reflection(intersectionPos, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
-    colorC += traceRay(reflection, thresh, depth - 1, t);
+      auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
+      ray reflection(intersectionPos, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
+      colorC += traceRay(reflection, thresh, depth - 1, t);
+    }
 
     // refraction
 
     // suggestion compare with glm refract
 
     //direction should be a normalized vecotr
-    auto cosTheta = glm::dot(n, -1 * r.getDirection());
-    auto angle = std::acos(cosTheta);
+    if (refractMode && m.Trans()) {
+      auto cosTheta = glm::dot(n, -1 * r.getDirection());
+      auto angle = std::acos(cosTheta);
 
-    if (cosTheta < 0.0) {
-      n = -n;
-      cosTheta = -cosTheta;
-    }
+      if (cosTheta < 0.0) {
+        n = -n;
+        cosTheta = -cosTheta;
+      }
 
 
-    // how do you know your starting material - i will assume you are in air, might need a mechanism to set
-    auto intersection_ior = m.index(i);
-    auto curr_ior = r.ior();
-    if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
-      intersection_ior = 1.0;
-    }
+      // how do you know your starting material - i will assume you are in air, might need a mechanism to set
+      auto intersection_ior = m.index(i);
+      auto curr_ior = r.ior();
+      if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
+        intersection_ior = 1.0;
+      }
 
-    if (angle != 0) {
-      auto sinTheta = std::sin(angle);
-      auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
-      if ( sinNewTheta > 1.0 ) {
-        // do reflection here, optional for now
+      if (angle != 0) {
+        auto sinTheta = std::sin(angle);
+        auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
+        if ( sinNewTheta > 1.0 ) {
+          // do reflection here, optional for now
+        }
+        else {
+          auto tangent = -r.getDirection() - cosTheta * n;
+          tangent = -1 *glm::normalize(tangent);
+
+          auto angle2 = std::asin(sinNewTheta);
+
+          double alpha = std::tan(angle2); // only works if normalized tangent and normal
+          auto refractDirection = -n + alpha * tangent;
+
+          ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
+          colorC += traceRay(refraction, thresh, depth - 1, t);
+        }
       }
       else {
-        auto tangent = -r.getDirection() - cosTheta * n;
-        tangent = -1 *glm::normalize(tangent);
-
-        auto angle2 = std::asin(sinNewTheta);
-
-        double alpha = std::tan(angle2); // only works if normalized tangent and normal
-        auto refractDirection = -n + alpha * tangent;
-
-        ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
-        colorC += traceRay(refraction, thresh, depth - 1, t);
+        ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
+        colorC += traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
       }
     }
-    else {
-      ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
-      colorC += traceRay(refraction, thresh, depth - 1, t);
-    }
+
   } else {
     // No intersection. This ray travels to infinity, so we color
     // it according to the background color, which in this (simple)
@@ -314,6 +323,14 @@ void RayTracer::traceImage(int w, int h) {
   //
   //       An asynchronous traceImage lets the GUI update your results
   //       while rendering.
+
+  for (int j = 0; j < h; ++j) {
+    for (int i = 0; i < w; ++i) {
+      tracePixel(i, j);
+    }
+  }
+
+  m_bBufferReady = true;
 }
 
 int RayTracer::aaImage() {

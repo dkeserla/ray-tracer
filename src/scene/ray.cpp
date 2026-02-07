@@ -9,8 +9,8 @@ const Material &isect::getMaterial() const {
 }
 
 ray::ray(const glm::dvec3 &pp, const glm::dvec3 &dd, const glm::dvec3 &w,
-         RayType tt)
-    : p(pp), d(dd), atten(w), t(tt) {
+         RayType tt, double c_ior)
+    : p(pp), d(dd), atten(w), t(tt), curr_ior((c_ior)) {
   TraceUI::addRay(ray_thread_id);
 }
 

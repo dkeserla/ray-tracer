@@ -35,21 +35,43 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
   //	if( debugMode )
   //		std::cout << "Debugging Phong code..." << std::endl;
 
-  auto ambientColorRgb = ka(i) * scene->ambient();
+
+  // attenuation
+  glm::dvec3 color = ka(i) * scene->ambient();
   // simple just calculate the light rate from this ray to the light via intersection
 
   // When you're iterating through the lights,
   // you'll want to use code that looks something
   // like this:
-  //
-  // for ( const auto& pLight : scene->getAllLights() )
-  // {
-  //              // pLight has type Light*
-  // 		.
-  // 		.
-  // 		.
-  // }
-  return kd(i);
+  //  factor in time and distance in the object, affects the attentuation, something about add up time in object recursively
+
+
+  glm::dvec3 p = r.at(i);          // hit point
+  glm::dvec3 n = glm::normalize(i.getN());
+
+  for ( const auto& pLight : scene->getAllLights() )
+  {
+               // pLight has type Light* .
+    // for point light the ray to the light is just straightforward to it
+
+
+    auto L = pLight->getDirection(p); // to light
+    auto distAtten = pLight->distanceAttenuation(p);      // 1 for directional, falloff for point
+    ray toLight(p, L, r.getAtten(), ray::SHADOW);
+    auto shadowAtten = pLight->shadowAttenuation(toLight, p); // shadow rays
+    auto I = pLight->getColor() * distAtten * shadowAtten;
+
+    double NdotL = std::max(0.0, glm::dot(n, L));
+
+    // Diffuse
+    color += kd(i) * I * NdotL;
+
+    auto v_vec = r.getDirection();
+    auto r_vec = 2 * glm::dot(n, L) * n - L;
+    color += ks(i) * I * std::pow(std::max(0.0, glm::dot(v_vec, r_vec)), i.getMaterial().shininess(i));
+  }
+  // return kd(i);
+  return color;
 }
 
 TextureMap::TextureMap(string filename) {
