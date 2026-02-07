@@ -16,6 +16,10 @@ Material::~Material() {}
 // Apply the phong model to this point on the surface of the object, returning
 // the color of that point.
 glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
+  // at this point we know that our ray has insersected with some object
+  // we have the point it insersected with and the material + light for this ray
+  //
+
   // YOUR CODE HERE
 
   // For now, this method just returns the diffuse color of the object.
@@ -30,6 +34,9 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
   // somewhere in your code in order to compute shadows and light falloff.
   //	if( debugMode )
   //		std::cout << "Debugging Phong code..." << std::endl;
+
+  auto ambientColorRgb = ka(i) * scene->ambient();
+  // simple just calculate the light rate from this ray to the light via intersection
 
   // When you're iterating through the lights,
   // you'll want to use code that looks something

@@ -154,6 +154,9 @@ public:
   }
 
   const BoundingBox &getBoundingBox() const { return localbounds; }
+private:
+  bool validPoint(glm::dvec3 &side_vec, glm::dvec3 &point_vec) const;
+
 };
 
 #endif // TRIMESH_H__

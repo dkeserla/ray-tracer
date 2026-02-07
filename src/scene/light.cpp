@@ -3,6 +3,7 @@
 
 #include "light.h"
 #include <glm/glm.hpp>
+#include <glm/gtx/extended_min_max.hpp>
 #include <glm/gtx/io.hpp>
 
 using namespace std;
@@ -31,7 +32,9 @@ double PointLight::distanceAttenuation(const glm::dvec3 &P) const {
   // You'll need to modify this method to attenuate the intensity
   // of the light based on the distance between the source and the
   // point P.  For now, we assume no attenuation and just return 1.0
-  return 1.0;
+  const auto dist = glm::distance(position, P);
+  const auto denom = constantTerm + linearTerm * dist + quadraticTerm * dist * dist;
+  return glm::min(1.0, 1/denom);
 }
 
 glm::dvec3 PointLight::getColor() const { return color; }

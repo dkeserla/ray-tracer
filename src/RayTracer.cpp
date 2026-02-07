@@ -74,8 +74,12 @@ glm::dvec3 RayTracer::tracePixel(int i, int j) {
 // called from here) to handle reflection, refraction, etc etc.
 glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
                                double &t) {
+  if (depth == 0) {
+    return glm::dvec3(0, 0, 0);
+  }
+
   isect i;
-  glm::dvec3 colorC;
+  glm::dvec3 colorC(0);
 #if VERBOSE
   std::cerr << "== current depth: " << depth << std::endl;
 #endif
@@ -91,8 +95,74 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
     // of just returning the result of shade(), add some more steps: add in the
     // contributions from reflected and refracted rays.
 
+    // assume for now contributions from refracted and reflected are additive
+    // all falloff is from distance
+
+    // just sum here the colors is done recursively and we can add independently i think
+
+    // shoot of reflection and refeaction and sum to color, the shade accounted by them is done
+
+
+    // main ray
     const Material &m = i.getMaterial();
-    colorC = m.shade(scene.get(), r, i);
+    colorC += m.shade(scene.get(), r, i);
+
+    glm::dvec3 n = i.getN();
+    auto intersectionPos = r.at(i);
+
+    // reflection
+    glm::highp_dmat3 identity(1.0); // TODO Make set once on initialize
+    auto nMatrix = 2.0 * glm::outerProduct(n, n);
+    glm::dmat3 reflectMat = identity - nMatrix;
+
+    auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
+    ray reflection(intersectionPos, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
+    colorC += traceRay(reflection, thresh, depth - 1, t);
+
+    // refraction
+
+    // suggestion compare with glm refract
+
+    //direction should be a normalized vecotr
+    auto cosTheta = glm::dot(n, -1 * r.getDirection());
+    auto angle = std::acos(cosTheta);
+
+    if (cosTheta < 0.0) {
+      n = -n;
+      cosTheta = -cosTheta;
+    }
+
+
+    // how do you know your starting material - i will assume you are in air, might need a mechanism to set
+    auto intersection_ior = m.index(i);
+    auto curr_ior = r.ior();
+    if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
+      intersection_ior = 1.0;
+    }
+
+    if (angle != 0) {
+      auto sinTheta = std::sin(angle);
+      auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
+      if ( sinNewTheta > 1.0 ) {
+        // do reflection here, optional for now
+      }
+      else {
+        auto tangent = -r.getDirection() - cosTheta * n;
+        tangent = -1 *glm::normalize(tangent);
+
+        auto angle2 = std::asin(sinNewTheta);
+
+        double alpha = std::tan(angle2); // only works if normalized tangent and normal
+        auto refractDirection = -n + alpha * tangent;
+
+        ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
+        colorC += traceRay(refraction, thresh, depth - 1, t);
+      }
+    }
+    else {
+      ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
+      colorC += traceRay(refraction, thresh, depth - 1, t);
+    }
   } else {
     // No intersection. This ray travels to infinity, so we color
     // it according to the background color, which in this (simple)

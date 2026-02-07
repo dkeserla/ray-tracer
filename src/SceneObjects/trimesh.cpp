@@ -80,9 +80,40 @@ bool TrimeshFace::intersect(ray &r, isect &i) const {
 // and put the parameter in t and the barycentric coordinates of the
 // intersection in u (alpha) and v (beta).
 bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
+  if (degen) {
+    return false;
+  }
+
   // YOUR CODE HERE
   //
   // FIXME: Add ray-trimesh intersection
+  glm::dvec3 p = r.getPosition();
+  glm::dvec3 d = r.getDirection();
+
+  // gives us the points in 3d space of abc
+  glm::dvec3 a_coords = parent->vertices[ids[0]];
+  glm::dvec3 b_coords = parent->vertices[ids[1]];
+  glm::dvec3 c_coords = parent->vertices[ids[2]];
+
+  // first find if ray has intersection with plane
+  double t = glm::dot((a_coords - p), normal) / glm::dot(d, normal);
+  if (t < 0) return false; // unsure if we need 0 here?
+
+  // now we have a t such that p + dt is on the plane, check if in bounds
+  // vectors from subtraction of points
+  glm::dvec3 ba = b_coords - a_coords;
+  glm::dvec3 cb = c_coords - b_coords;
+  glm::dvec3 ac = a_coords - c_coords;
+
+  auto pa = p - a_coords;
+  auto pb = p - b_coords;
+  auto pc = p - c_coords;
+
+  if (!validPoint(ba, pa) || !validPoint(cb, pb) || !validPoint(ac, pc)) {
+    return false;
+  }
+
+  // at this point it will intersect
 
   /* To determine the color of an intersection, use the following rules:
      - If the parent mesh has non-empty `uvCoords`, barycentrically interpolate
@@ -98,6 +129,11 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
 
   i.setObject(this->parent);
   return false;
+}
+
+
+bool TrimeshFace::validPoint(glm::dvec3 &side_vec, glm::dvec3 &point_vec) const {
+  return glm::dot(glm::cross(side_vec, point_vec), normal) >= 0;
 }
 
 // Once all the verts and faces are loaded, per vertex normals can be

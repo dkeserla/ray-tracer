@@ -31,7 +31,7 @@ public:
   enum RayType { VISIBILITY, REFLECTION, REFRACTION, SHADOW };
 
   ray(const glm::dvec3 &pp, const glm::dvec3 &dd, const glm::dvec3 &w,
-      RayType tt = VISIBILITY);
+      RayType tt = VISIBILITY, double c_ior = 1.0);
   ray(const ray &other);
   ~ray();
 
@@ -44,6 +44,7 @@ public:
   glm::dvec3 getDirection() const { return d; }
   glm::dvec3 getAtten() const { return atten; }
   RayType type() const { return t; }
+  double ior() const { return curr_ior; }
 
   void setPosition(const glm::dvec3 &pp) { p = pp; }
   void setDirection(const glm::dvec3 &dd) { d = dd; }
@@ -53,6 +54,7 @@ private:
   glm::dvec3 d;
   glm::dvec3 atten;
   RayType t;
+  double curr_ior; // index of refraction
 };
 
 
