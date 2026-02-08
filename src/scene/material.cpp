@@ -48,6 +48,7 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
 
   glm::dvec3 p = r.at(i);          // hit point
   glm::dvec3 n = glm::normalize(i.getN());
+  if (glm::dot(n, glm::normalize(r.getDirection())) > 0.0) n = -n;
 
   for ( const auto& pLight : scene->getAllLights() )
   {
@@ -61,13 +62,12 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
     auto shadowAtten = pLight->shadowAttenuation(toLight, p); // shadow rays
     auto I = pLight->getColor() * distAtten * shadowAtten;
 
-    double NdotL = std::max(0.0, glm::dot(n, L));
-
     // Diffuse
-    color += kd(i) * I * NdotL;
+    color += kd(i) * I * std::max(0.0, glm::dot(n, L));
 
-glm::dvec3 v_vec = glm::normalize(-r.getDirection());
-glm::dvec3 r_vec = glm::normalize(2 * glm::dot(n, L) * n - L);
+    // Spectral
+    glm::dvec3 v_vec = glm::normalize(-r.getDirection());
+    glm::dvec3 r_vec = glm::normalize(2 * glm::dot(n, L) * n - L);
     color += ks(i) * I * std::pow(std::max(0.0, glm::dot(v_vec, r_vec)), i.getMaterial().shininess(i));
   }
   // return kd(i);

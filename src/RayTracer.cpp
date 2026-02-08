@@ -129,47 +129,94 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
 
     // suggestion compare with glm refract
 
-    //direction should be a normalized vecotr
+    // 3. Refraction (Snell’s law). [file:10]
     if (refractMode && m.Trans()) {
-      auto cosTheta = glm::dot(n, -1 * r.getDirection());
-      auto angle = std::acos(cosTheta);
+      glm::dvec3 p = r.at(i);                               // hit point
+      glm::dvec3 N = glm::normalize(i.getN());
+      glm::dvec3 wi = glm::normalize(r.getDirection());     // incoming (toward surface)
+      // Decide if we’re entering or leaving.
+      double eta_i = 1.0;           // index on incident side (assume air)
+      double eta_t = m.index(i);       // index inside material
+      glm::dvec3 Nn = N;
 
-      if (cosTheta < 0.0) {
-        n = -n;
-        cosTheta = -cosTheta;
+      // If ray is inside material going out, swap indices and flip normal.
+      if (glm::dot(wi, N) < 0.0) {
+        // wi is going from air into material (since N points out of material).
+        // Nothing to swap.
+      } else {
+        // leaving: inside → air
+        std::swap(eta_i, eta_t);
+        Nn = -Nn;
       }
 
+      double eta = eta_i / eta_t;
 
-      // how do you know your starting material - i will assume you are in air, might need a mechanism to set
-      auto intersection_ior = m.index(i);
-      auto curr_ior = r.ior();
-      if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
-        intersection_ior = 1.0;
+      double cos_i = -glm::dot(Nn, wi);                 // cos θ₁
+      double sin2_t = eta * eta * (1.0 - cos_i * cos_i);
+
+      // Reference solution ignores total internal reflection; if it happens,
+      // we simply skip refraction. [file:10]
+      if (sin2_t <= 1.0) {
+        double cos_t = sqrt(std::max(0.0, 1.0 - sin2_t));  // cos θ₂
+
+        // Snell’s law direction: w_refr = η w_i + (η cosθ₁ - cosθ₂) n. [file:10]
+        glm::dvec3 refrDir =
+            eta * wi + (eta * cos_i - cos_t) * Nn;
+        refrDir = glm::normalize(refrDir);
+
+        ray refrRay(p + RAY_EPSILON * refrDir,
+                    refrDir,
+                    r.getAtten(),
+                    ray::REFRACTION);                 // [file:7]
+
+        double tRefr;
+        glm::dvec3 refrCol =
+            traceRay(refrRay, thresh , depth - 1, tRefr);
+
+        // Scale by kt to tint transmission, per lecture. [file:10]
+        colorC += refrCol;
       }
-
-      if (angle != 0) {
-        auto sinTheta = std::sin(angle);
-        auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
-        if ( sinNewTheta > 1.0 ) {
-          // do reflection here, optional for now
-        }
-        else {
-          auto tangent = -r.getDirection() - cosTheta * n;
-          tangent = -1 *glm::normalize(tangent);
-
-          auto angle2 = std::asin(sinNewTheta);
-
-          double alpha = std::tan(angle2); // only works if normalized tangent and normal
-          auto refractDirection = -n + alpha * tangent;
-
-          ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
-          colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t);
-        }
-      }
-      else {
-        ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
-        colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
-      }
+    //direction should be a normalized vecotr
+    // if () {
+    //   auto cosTheta = glm::dot(n, -1 * r.getDirection());
+    //   auto angle = std::acos(cosTheta);
+    //
+    //   if (cosTheta < 0.0) {
+    //     n = -n;
+    //     cosTheta = -cosTheta;
+    //   }
+    //
+    //
+    //   // how do you know your starting material - i will assume you are in air, might need a mechanism to set
+    //   auto intersection_ior = m.index(i);
+    //   auto curr_ior = r.ior();
+    //   if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
+    //     intersection_ior = 1.0;
+    //   }
+    //
+    //   if (angle != 0) {
+    //     auto sinTheta = std::sin(angle);
+    //     auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
+    //     if ( sinNewTheta > 1.0 ) {
+    //       // do reflection here, optional for now
+    //     }
+    //     else {
+    //       auto tangent = -r.getDirection() - cosTheta * n;
+    //       tangent = -1 *glm::normalize(tangent);
+    //
+    //       auto angle2 = std::asin(sinNewTheta);
+    //
+    //       double alpha = std::tan(angle2); // only works if normalized tangent and normal
+    //       auto refractDirection = -n + alpha * tangent;
+    //
+    //       ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
+    //       colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t);
+    //     }
+    //   }
+    //   else {
+    //     ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
+    //     colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
+    //   }
     }
 
   } else {
