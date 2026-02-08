@@ -122,7 +122,7 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
 
       auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
       ray reflection(intersectionPos, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
-      colorC += traceRay(reflection, thresh, depth - 1, t);
+      colorC += m.kr(i) * traceRay(reflection, thresh, depth - 1, t);
     }
 
     // refraction
@@ -163,12 +163,12 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
           auto refractDirection = -n + alpha * tangent;
 
           ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
-          colorC += traceRay(refraction, thresh, depth - 1, t);
+          colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t);
         }
       }
       else {
         ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
-        colorC += traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
+        colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
       }
     }
 

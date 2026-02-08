@@ -66,8 +66,8 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
     // Diffuse
     color += kd(i) * I * NdotL;
 
-    auto v_vec = r.getDirection();
-    auto r_vec = 2 * glm::dot(n, L) * n - L;
+glm::dvec3 v_vec = glm::normalize(-r.getDirection());
+glm::dvec3 r_vec = glm::normalize(2 * glm::dot(n, L) * n - L);
     color += ks(i) * I * std::pow(std::max(0.0, glm::dot(v_vec, r_vec)), i.getMaterial().shininess(i));
   }
   // return kd(i);
