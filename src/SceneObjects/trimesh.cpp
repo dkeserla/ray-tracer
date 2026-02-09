@@ -115,6 +115,7 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
 
   // at this point it will intersect
 
+  i.setT(t);
   /* To determine the color of an intersection, use the following rules:
      - If the parent mesh has non-empty `uvCoords`, barycentrically interpolate
        the UV coordinates of the three vertices of the face, then assign it to

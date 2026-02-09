@@ -13,57 +13,6 @@ double DirectionalLight::distanceAttenuation(const glm::dvec3 &) const {
   return 1.0;
 }
 
-
-// glm::dvec3 DirectionalLight::shadowAttenuation(const ray &r,
-//                                                const glm::dvec3 &p) const {
-//   // return glm::dvec3(1.0);
-//   glm::dvec3 dir = getDirection(p);                       // normalized [file:2]
-//   glm::dvec3 atten(1.0);
-//
-//   ray shadowRay(p + RAY_EPSILON * dir, dir, r.getAtten(), ray::SHADOW);
-//   double traveled = 0.0;                                  // distance from p
-//
-//   while (true) {
-//     isect is;
-//     if (!scene->intersect(shadowRay, is)) {
-//       // no more objects toward light
-//       break;                                              // [file:6]
-//     }
-//
-//     double t = is.getT();
-//     if (t <= 0.0) {
-//       // numeric noise; nudge and continue
-//       shadowRay.setPosition(shadowRay.getPosition() + 1e-4 * dir);
-//       continue;
-//     }
-//
-//     traveled += t;
-//     const Material &m = is.getMaterial();                 // [file:3]
-//
-//     if (!m.Trans()) {
-//       // fully opaque: full shadow
-//       return glm::dvec3(0.0);
-//     }
-//
-//     glm::dvec3 kt = m.kt(is);                             // transmittance
-//     // Use kt^d, but with d scaled so it’s not too strong.
-//     double d = t; // distance in world units
-//     glm::dvec3 factor = glm::pow(kt, glm::dvec3(d * 0.2)); // tweak 0.2 if needed
-//
-//     atten *= factor;
-//
-//     if (atten.x < 1e-3 && atten.y < 1e-3 && atten.z < 1e-3) {
-//       return glm::dvec3(0.0);
-//     }
-//
-//     // Move just past exit point
-//     glm::dvec3 newPos = shadowRay.at(is) + 1e-4 * dir;
-//     shadowRay.setPosition(newPos);
-//   }
-//
-//   return atten;                                           // [file:2]
-// }
-
 glm::dvec3 DirectionalLight::shadowAttenuation(const ray &r,
                                                const glm::dvec3 &p) const {
   // YOUR CODE HERE:
@@ -71,7 +20,7 @@ glm::dvec3 DirectionalLight::shadowAttenuation(const ray &r,
   isect i;
   ray r_new(r);
   if (!scene->intersect(r_new, i)) {
-    return glm::dvec3(1, 1, 1);
+    return {1, 1, 1};
   }
 
   const Material &m = i.getMaterial();
@@ -124,54 +73,6 @@ glm::dvec3 PointLight::getDirection(const glm::dvec3 &P) const {
   return glm::normalize(position - P);
 }
 
-// glm::dvec3 PointLight::shadowAttenuation(const ray &r,
-//                                          const glm::dvec3 &p) const {
-//   glm::dvec3 dir = getDirection(p);                       // [file:2]
-//   double lightDist = glm::distance(position, p);
-//
-//   glm::dvec3 atten(1.0);
-//   ray shadowRay(p + RAY_EPSILON * dir, dir, r.getAtten(), ray::SHADOW);
-//   double traveled = 0.0;
-//
-//   while (true) {
-//     isect is;
-//     if (!scene->intersect(shadowRay, is)) {
-//       break;                                              // [file:6]
-//     }
-//
-//     double t = is.getT();
-//     if (t <= 0.0) {
-//       shadowRay.setPosition(shadowRay.getPosition() + 1e-4 * dir);
-//       continue;
-//     }
-//
-//     traveled += t;
-//     if (traveled >= lightDist) {
-//       // intersection is behind light
-//       break;
-//     }
-//
-//     const Material &m = is.getMaterial();
-//     if (!m.Trans()) {
-//       return glm::dvec3(0.0);
-//     }
-//
-//     glm::dvec3 kt = m.kt(is);
-//     double d = t;
-//     glm::dvec3 factor = glm::pow(kt, glm::dvec3(d * 0.2));
-//
-//     atten *= factor;
-//
-//     if (atten.x < 1e-3 && atten.y < 1e-3 && atten.z < 1e-3) {
-//       return glm::dvec3(0.0);
-//     }
-//
-//     glm::dvec3 newPos = shadowRay.at(is) + 1e-4 * dir;
-//     shadowRay.setPosition(newPos);
-//   }
-//
-//   return atten;                                           // [file:2]
-// }
 glm::dvec3 PointLight::shadowAttenuation(const ray &r,
                                          const glm::dvec3 &p) const {
   // YOUR CODE HERE:

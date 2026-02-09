@@ -113,7 +113,7 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
     colorC += m.shade(scene.get(), r, i);
 
     glm::dvec3 n = i.getN();
-    auto intersectionPos = r.at(i);
+    auto intersectionPos = r.at(i);  // + ray epsilon * dir
 
     // reflection
     if (reflectMode) {
@@ -129,7 +129,7 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
 
     // suggestion compare with glm refract
 
-    // 3. Refraction (Snell’s law). [file:10]
+    // 3. Refraction (Snell’s law).
     if (refractMode && m.Trans()) {
       glm::dvec3 p = r.at(i);                               // hit point
       glm::dvec3 N = glm::normalize(i.getN());
@@ -155,11 +155,11 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
       double sin2_t = eta * eta * (1.0 - cos_i * cos_i);
 
       // Reference solution ignores total internal reflection; if it happens,
-      // we simply skip refraction. [file:10]
+      // we simply skip refraction.
       if (sin2_t <= 1.0) {
         double cos_t = sqrt(std::max(0.0, 1.0 - sin2_t));  // cos θ₂
 
-        // Snell’s law direction: w_refr = η w_i + (η cosθ₁ - cosθ₂) n. [file:10]
+        // Snell’s law direction: w_refr = η w_i + (η cosθ₁ - cosθ₂) n.
         glm::dvec3 refrDir =
             eta * wi + (eta * cos_i - cos_t) * Nn;
         refrDir = glm::normalize(refrDir);
@@ -167,13 +167,13 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
         ray refrRay(p + RAY_EPSILON * refrDir,
                     refrDir,
                     r.getAtten(),
-                    ray::REFRACTION);                 // [file:7]
+                    ray::REFRACTION);
 
         double tRefr;
         glm::dvec3 refrCol =
             traceRay(refrRay, thresh , depth - 1, tRefr);
 
-        // Scale by kt to tint transmission, per lecture. [file:10]
+        // Scale by kt to tint transmission, per lecture.
         colorC += refrCol;
       }
     //direction should be a normalized vecotr
@@ -386,6 +386,39 @@ int RayTracer::aaImage() {
   //
   // TIP: samples and aaThresh have been synchronized with TraceUI by
   //      RayTracer::traceSetup() function
+
+  std::vector accum(buffer_width * buffer_height, glm::dvec3(0.0));
+
+  for (int j = 0; j < buffer_height; ++j) {
+    for (int i = 0; i < buffer_width; ++i) {
+      glm::dvec3 col(0.0);
+
+      for (int sy = 0; sy < samples; ++sy) {
+        for (int sx = 0; sx < samples; ++sx) {
+          auto x = (i + (sx + 0.5) / samples ) / buffer_width;
+          auto y = (j + (sy + 0.5) / samples ) / buffer_height;
+
+          col += trace(x, y);
+        }
+      }
+
+      col /= (samples * samples);
+      accum[i + j * buffer_width] = col;
+    }
+  }
+
+  // Write averaged result back into 8‑bit buffer
+  for (int j = 0; j < buffer_height; ++j) {
+    for (int i = 0; i < buffer_width; ++i) {
+      glm::dvec3 col = glm::clamp(accum[i + j * buffer_width], 0.0, 1.0);
+
+      unsigned char *pixel = buffer.data() + (i + j * buffer_width) * 3;
+      pixel[0] = int(255.0 * col[0]);
+      pixel[1] = int(255.0 * col[1]);
+      pixel[2] = int(255.0 * col[2]);
+    }
+  }
+
   return 0;
 }
 

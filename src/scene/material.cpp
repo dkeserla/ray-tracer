@@ -63,7 +63,7 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
     auto I = pLight->getColor() * distAtten * shadowAtten;
 
     // Diffuse
-    color += kd(i) * I * std::max(0.0, glm::dot(n, L));
+    color += kd(i) * I * std::abs(glm::dot(n, L));
 
     // Spectral
     glm::dvec3 v_vec = glm::normalize(-r.getDirection());
