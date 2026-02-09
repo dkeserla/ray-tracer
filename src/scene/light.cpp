@@ -33,7 +33,7 @@ glm::dvec3 DirectionalLight::shadowAttenuation(const ray &r,
   auto kt = m.kt(i);
   auto enter = r_new.at(i);
   // ray through_object(r_new.at(i), r_new.getDirection(), r_new.getAtten());
-  r_new.setPosition(enter + 1e-4 * r_new.getDirection());
+  r_new.setPosition(enter + RAY_EPSILON * r_new.getDirection());
   // assume it will always have end of object
   if (!scene->intersect(r_new, i)) {
     return glm::dvec3(1);
@@ -46,7 +46,7 @@ glm::dvec3 DirectionalLight::shadowAttenuation(const ray &r,
   }
 
 
-  ray rest(r_new.at(i)+ 1e-4 * r_new.getDirection(), r_new.getDirection(), r_new.getAtten());
+  ray rest(r_new.at(i)+ RAY_EPSILON * r_new.getDirection(), r_new.getDirection(), r_new.getAtten());
   return atten * shadowAttenuation(rest, rest.getPosition());
 }
 
@@ -109,7 +109,7 @@ glm::dvec3 PointLight::shadowAttenuation(const ray &r,
   auto kt = m.kt(i);
   auto enter = r_new.at(i);
   // ray through_object(r_new.at(i), r_new.getDirection(), r_new.getAtten());
-  r_new.setPosition(enter + 1e-4 * r_new.getDirection());
+  r_new.setPosition(enter + RAY_EPSILON * r_new.getDirection());
   // assume it will always have end of object
   if (!scene->intersect(r_new, i)) {
     return glm::dvec3(1);
@@ -122,7 +122,7 @@ glm::dvec3 PointLight::shadowAttenuation(const ray &r,
   }
 
 
-  ray rest(r_new.at(i)+ 1e-4 * r_new.getDirection(), r_new.getDirection(), r_new.getAtten());
+  ray rest(r_new.at(i)+ RAY_EPSILON * r_new.getDirection(), r_new.getDirection(), r_new.getAtten());
   return atten * shadowAttenuation(rest, rest.getPosition());
 }
 

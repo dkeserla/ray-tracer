@@ -96,18 +96,22 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
   glm::dvec3 c_coords = parent->vertices[ids[2]];
 
   // first find if ray has intersection with plane
-  double t = glm::dot((a_coords - p), normal) / glm::dot(d, normal);
-  if (t < 0) return false; // unsure if we need 0 here?
+  auto denominator =  glm::dot(d, normal);
+  if (denominator == 0.0) return false;
+  double t = glm::dot((a_coords - p), normal) / denominator;
+  if (t < 0) return false;
 
   // now we have a t such that p + dt is on the plane, check if in bounds
   // vectors from subtraction of points
+  auto plane_p = p + d * t;
+
   glm::dvec3 ba = b_coords - a_coords;
   glm::dvec3 cb = c_coords - b_coords;
   glm::dvec3 ac = a_coords - c_coords;
 
-  auto pa = p - a_coords;
-  auto pb = p - b_coords;
-  auto pc = p - c_coords;
+  auto pa = plane_p - a_coords;
+  auto pb = plane_p - b_coords;
+  auto pc = plane_p - c_coords;
 
   if (!validPoint(ba, pa) || !validPoint(cb, pb) || !validPoint(ac, pc)) {
     return false;
@@ -115,7 +119,58 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
 
   // at this point it will intersect
 
+  auto p2p1 = ba;
+  auto p3p1 = -ac;
+  auto cp1 = plane_p - a_coords;
+
+  auto a_r = glm::dot(p2p1, p2p1);
+  auto b_r = glm::dot(p3p1, p2p1);
+  auto c_r = glm::dot(p2p1, p3p1);
+  auto d_r = glm::dot(p3p1, p3p1);
+  glm::dmat2x2 mass_mat(a_r, b_r, c_r, d_r);
+  auto res = glm::inverse(mass_mat) * glm::dvec2(glm::dot(cp1, p2p1), glm::dot(cp1, p3p1));
+
+  auto beta = res[0];
+  auto gamma = res[1];
+  auto alpha = 1 - beta - gamma; // there should be no problems since we already determined point as valid
+  if (alpha < 0 || beta < 0 || gamma < 0) { // can also check if they are larger than 1 but thats chill I hope
+    return false;
+  }
+  i.setBary(alpha, beta, gamma);
+
+  auto n = normal;
+  if (parent->vertNorms && !parent->normals.empty()) {
+    n = alpha * parent->normals[ids[0]] +
+        beta * parent->normals[ids[1]] +
+        gamma * parent->normals[ids[2]];
+    n = glm::normalize(n);
+  }
+
   i.setT(t);
+  i.setN(n);
+  i.setObject(parent);
+
+  if (!parent->uvCoords.empty()) {
+    i.setUVCoordinates(
+alpha * parent->uvCoords[ids[0]] +
+      beta  * parent->uvCoords[ids[1]] +
+      gamma * parent->uvCoords[ids[2]]
+    );
+    i.setMaterial(parent->material);
+  }
+  else if (!parent->vertColors.empty()) {
+    Material m = parent->material;
+    m.setDiffuse(
+   alpha * parent->vertColors[ids[0]] +
+      beta  * parent->vertColors[ids[1]] +
+      gamma * parent->vertColors[ids[2]]
+    );
+    i.setMaterial(m);
+  }
+  else {
+    i.setMaterial(parent->material);
+  }
+
   /* To determine the color of an intersection, use the following rules:
      - If the parent mesh has non-empty `uvCoords`, barycentrically interpolate
        the UV coordinates of the three vertices of the face, then assign it to
@@ -128,8 +183,7 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
      - If neither is true, assign the parent's material to the intersection.
   */
 
-  i.setObject(this->parent);
-  return false;
+  return true;
 }
 
 

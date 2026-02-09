@@ -121,7 +121,7 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
       glm::dmat3 reflectMat = identity - nMatrix;
 
       auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
-      ray reflection(intersectionPos, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
+      ray reflection(intersectionPos + RAY_EPSILON * reflectionDirection, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
       colorC += m.kr(i) * traceRay(reflection, thresh, depth - 1, t);
     }
 

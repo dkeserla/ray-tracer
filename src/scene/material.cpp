@@ -58,7 +58,7 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
 
     auto L = pLight->getDirection(p); // to light
     auto distAtten = pLight->distanceAttenuation(p);      // 1 for directional, falloff for point
-    ray toLight(p, L, r.getAtten(), ray::SHADOW);
+    ray toLight(p + RAY_EPSILON * L, L, r.getAtten(), ray::SHADOW);
     auto shadowAtten = pLight->shadowAttenuation(toLight, p); // shadow rays
     auto I = pLight->getColor() * distAtten * shadowAtten;
 
