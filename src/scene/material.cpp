@@ -52,25 +52,21 @@ glm::dvec3 Material::shade(Scene *scene, const ray &r, const isect &i) const {
 
   for ( const auto& pLight : scene->getAllLights() )
   {
-               // pLight has type Light* .
-    // for point light the ray to the light is just straightforward to it
-
-
     auto L = pLight->getDirection(p); // to light
-    auto distAtten = pLight->distanceAttenuation(p);      // 1 for directional, falloff for point
+    auto distAtten = pLight->distanceAttenuation(p);
     ray toLight(p + RAY_EPSILON * L, L, r.getAtten(), ray::SHADOW);
-    auto shadowAtten = pLight->shadowAttenuation(toLight, p); // shadow rays
+    auto shadowAtten = pLight->shadowAttenuation(toLight, p);
     auto I = pLight->getColor() * distAtten * shadowAtten;
 
     // Diffuse
-    color += kd(i) * I * std::abs(glm::dot(n, L));
+    color += kd(i) * std::max(0.0, glm::dot(n, L)) * I;
 
     // Spectral
     glm::dvec3 v_vec = glm::normalize(-r.getDirection());
     glm::dvec3 r_vec = glm::normalize(2 * glm::dot(n, L) * n - L);
-    color += ks(i) * I * std::pow(std::max(0.0, glm::dot(v_vec, r_vec)), i.getMaterial().shininess(i));
+    color += ks(i) * std::pow(std::max(0.0, glm::dot(v_vec, r_vec)), i.getMaterial().shininess(i)) * I;
   }
-  // return kd(i);
+
   return color;
 }
 

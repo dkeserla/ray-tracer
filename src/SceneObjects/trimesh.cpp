@@ -3,7 +3,10 @@
 #include <assert.h>
 #include <cmath>
 #include <float.h>
+#include <iostream>
+#include <ostream>
 #include <string.h>
+#include <glm/gtx/io.hpp>
 #include "../ui/TraceUI.h"
 extern TraceUI *traceUI;
 extern TraceUI *traceUI;
@@ -99,7 +102,7 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
   auto denominator =  glm::dot(d, normal);
   if (denominator == 0.0) return false;
   double t = glm::dot((a_coords - p), normal) / denominator;
-  if (t < 0) return false;
+  if (t < RAY_EPSILON) return false;
 
   // now we have a t such that p + dt is on the plane, check if in bounds
   // vectors from subtraction of points
@@ -150,6 +153,9 @@ bool TrimeshFace::intersectLocal(ray &r, isect &i) const {
   i.setN(n);
   i.setObject(parent);
 
+// std::cout << "a: " << a_coords
+//           << " b: " << b_coords
+//           << " c: " << c_coords << std::endl;
   if (!parent->uvCoords.empty()) {
     i.setUVCoordinates(
 alpha * parent->uvCoords[ids[0]] +

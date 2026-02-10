@@ -112,113 +112,46 @@ glm::dvec3 RayTracer::traceRay(ray &r, const glm::dvec3 &thresh, int depth,
     const Material &m = i.getMaterial();
     colorC += m.shade(scene.get(), r, i);
 
-    glm::dvec3 n = i.getN();
+    glm::dvec3 n = glm::normalize(i.getN());
     auto intersectionPos = r.at(i);  // + ray epsilon * dir
+    glm::dvec3 r_dir = glm::normalize(r.getDirection());
 
     // reflection
     if (reflectMode) {
       auto nMatrix = 2.0 * glm::outerProduct(n, n);
       glm::dmat3 reflectMat = identity - nMatrix;
 
-      auto reflectionDirection = reflectMat * r.getDirection(); // need to update the T to double-check floating point with t
+      auto reflectionDirection = reflectMat * r_dir;
       ray reflection(intersectionPos + RAY_EPSILON * reflectionDirection, reflectionDirection, r.getAtten(), ray::REFLECTION, r.ior());
       colorC += m.kr(i) * traceRay(reflection, thresh, depth - 1, t);
     }
 
     // refraction
-
-    // suggestion compare with glm refract
-
-    // 3. Refraction (Snell’s law).
     if (refractMode && m.Trans()) {
-      glm::dvec3 p = r.at(i);                               // hit point
-      glm::dvec3 N = glm::normalize(i.getN());
-      glm::dvec3 wi = glm::normalize(r.getDirection());     // incoming (toward surface)
-      // Decide if we’re entering or leaving.
-      double eta_i = 1.0;           // index on incident side (assume air)
-      double eta_t = m.index(i);       // index inside material
-      glm::dvec3 Nn = N;
+      // assume we are in air into object
+      double ref_ratio = 1.0 / m.index(i);
+      glm::dvec3 N = n;
 
-      // If ray is inside material going out, swap indices and flip normal.
-      if (glm::dot(wi, N) < 0.0) {
-        // wi is going from air into material (since N points out of material).
-        // Nothing to swap.
-      } else {
-        // leaving: inside → air
-        std::swap(eta_i, eta_t);
-        Nn = -Nn;
+      // flip from object into air
+      if (glm::dot(r_dir, n) >= 0.0) {
+        ref_ratio = 1.0 / ref_ratio;
+        N = -N;
       }
 
-      double eta = eta_i / eta_t;
+      double cos_theta1 = glm::dot(-N, r_dir);
+      double sin2_theta2 = ref_ratio * ref_ratio * (1.0 - cos_theta1 * cos_theta1); // sin^2 = 1-cos^2
 
-      double cos_i = -glm::dot(Nn, wi);                 // cos θ₁
-      double sin2_t = eta * eta * (1.0 - cos_i * cos_i);
+      if (sin2_theta2 <= 1.0) {
+        double cos_theta2 = sqrt(std::max(0.0, 1.0 - sin2_theta2));  // cos θ₂
 
-      // Reference solution ignores total internal reflection; if it happens,
-      // we simply skip refraction.
-      if (sin2_t <= 1.0) {
-        double cos_t = sqrt(std::max(0.0, 1.0 - sin2_t));  // cos θ₂
+        auto w_norm = cos_theta2 * N;
+        auto w_t = r_dir + cos_theta1 * N; // -wtan + w_norm = -w_in, for the w_tan we want -> wtan = win + wnorm
+        auto refractionDirection = glm::normalize(w_t * ref_ratio - w_norm);
 
-        // Snell’s law direction: w_refr = η w_i + (η cosθ₁ - cosθ₂) n.
-        glm::dvec3 refrDir =
-            eta * wi + (eta * cos_i - cos_t) * Nn;
-        refrDir = glm::normalize(refrDir);
-
-        ray refrRay(p + RAY_EPSILON * refrDir,
-                    refrDir,
-                    r.getAtten(),
-                    ray::REFRACTION);
-
-        double tRefr;
-        glm::dvec3 refrCol =
-            traceRay(refrRay, thresh , depth - 1, tRefr);
-
-        // Scale by kt to tint transmission, per lecture.
-        colorC += refrCol;
+        ray refraction(intersectionPos + RAY_EPSILON * refractionDirection, refractionDirection, r.getAtten(), ray::REFRACTION);
+        colorC += traceRay(refraction, thresh, depth - 1, t);;
       }
-    //direction should be a normalized vecotr
-    // if () {
-    //   auto cosTheta = glm::dot(n, -1 * r.getDirection());
-    //   auto angle = std::acos(cosTheta);
-    //
-    //   if (cosTheta < 0.0) {
-    //     n = -n;
-    //     cosTheta = -cosTheta;
-    //   }
-    //
-    //
-    //   // how do you know your starting material - i will assume you are in air, might need a mechanism to set
-    //   auto intersection_ior = m.index(i);
-    //   auto curr_ior = r.ior();
-    //   if (std::abs(curr_ior - intersection_ior ) < 1e-6) { // if they are the same, then our refraction will take us out of the object
-    //     intersection_ior = 1.0;
-    //   }
-    //
-    //   if (angle != 0) {
-    //     auto sinTheta = std::sin(angle);
-    //     auto sinNewTheta = sinTheta * curr_ior / intersection_ior;
-    //     if ( sinNewTheta > 1.0 ) {
-    //       // do reflection here, optional for now
-    //     }
-    //     else {
-    //       auto tangent = -r.getDirection() - cosTheta * n;
-    //       tangent = -1 *glm::normalize(tangent);
-    //
-    //       auto angle2 = std::asin(sinNewTheta);
-    //
-    //       double alpha = std::tan(angle2); // only works if normalized tangent and normal
-    //       auto refractDirection = -n + alpha * tangent;
-    //
-    //       ray refraction(intersectionPos, refractDirection, r.getAtten(), ray::REFRACTION, intersection_ior);
-    //       colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t);
-    //     }
-    //   }
-    //   else {
-    //     ray refraction(intersectionPos, r.getDirection(), r.getAtten(), ray::REFRACTION, intersection_ior);
-    //     colorC += m.kt(i) * traceRay(refraction, thresh, depth - 1, t); // * ray.attentuation maybe?
-    //   }
     }
-
   } else {
     // No intersection. This ray travels to infinity, so we color
     // it according to the background color, which in this (simple)
@@ -391,31 +324,25 @@ int RayTracer::aaImage() {
 
   for (int j = 0; j < buffer_height; ++j) {
     for (int i = 0; i < buffer_width; ++i) {
-      glm::dvec3 col(0.0);
+      glm::dvec3 res(0.0);
 
       for (int sy = 0; sy < samples; ++sy) {
         for (int sx = 0; sx < samples; ++sx) {
           auto x = (i + (sx + 0.5) / samples ) / buffer_width;
           auto y = (j + (sy + 0.5) / samples ) / buffer_height;
 
-          col += trace(x, y);
+          res += trace(x, y);
         }
       }
 
-      col /= (samples * samples);
-      accum[i + j * buffer_width] = col;
+      res /= (samples * samples);
+      accum[i + j * buffer_width] = res;
     }
   }
 
-  // Write averaged result back into 8‑bit buffer
   for (int j = 0; j < buffer_height; ++j) {
     for (int i = 0; i < buffer_width; ++i) {
-      glm::dvec3 col = glm::clamp(accum[i + j * buffer_width], 0.0, 1.0);
-
-      unsigned char *pixel = buffer.data() + (i + j * buffer_width) * 3;
-      pixel[0] = int(255.0 * col[0]);
-      pixel[1] = int(255.0 * col[1]);
-      pixel[2] = int(255.0 * col[2]);
+      setPixel(i, j, glm::clamp(accum[i + j * buffer_width], 0.0, 1.0));
     }
   }
 
